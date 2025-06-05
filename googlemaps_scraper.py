@@ -33,10 +33,13 @@ def create_incognito_browser() -> webdriver.Chrome:
     print("…starting browser")
     driver.get(START_URL)                       # ← automatic navigation
     time.sleep(1)
-    for i in driver.find_elements(By.TAG_NAME, 'button'):
-        if 'Accept all' in i.get_attribute('aria-label'):
-            i.click() 
-            break
+    try:
+        for i in driver.find_elements(By.TAG_NAME, 'button'):
+            if 'Accept all' in i.get_attribute('aria-label'):
+                i.click() 
+                break
+    except:
+        pass
     time.sleep(3)
     return driver
 
