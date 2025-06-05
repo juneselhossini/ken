@@ -1,0 +1,44 @@
+name: Build Mac app
+
+on:
+  workflow_dispatch:      # manual button
+  push:
+    tags: [ 'v*' ]        # or whenever you push a version tag
+
+jobs:
+  build:
+    runs-on: macos-14     # Apple-Silicon runner (or use macos-latest) :contentReference[oaicite:1]{index=1}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5        # standard Python toolchain :contentReference[oaicite:2]{index=2}
+      with:
+        python-version: '3.12'
+
+    - name: Install build deps
+      run: |
+        python -m pip install -U pip
+        pip install -r requirements.txt
+        # rare Tk header hiccup on macOS runners:
+        brew install tcl-tk || true
+
+    - name: Freeze with PyInstaller
+      run: |
+        pyinstaller googlemaps_scraper.py \
+                   --windowed \
+                   --name "GMapsClaimChecker" \
+                   --target-arch universal2     # 1 binary = Intel + Apple-Silicon
+
+    - name: Zip the .app
+      run: |
+        cd dist
+        ditto -c -k --sequesterRsrc --keepParent \
+              GMapsClaimChecker.app GMapsClaimChecker-mac.zip
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4      # uploads zip to the run page :contentReference[oaicite:3]{index=3}
+      with:
+        name: GMapsClaimChecker-mac
+        path: dist/GMapsClaimChecker-mac.zip
