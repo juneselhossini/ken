@@ -36,7 +36,7 @@ def create_incognito_browser() -> webdriver.Chrome:
     service = Service()  # looks for chromedriver on PATH
     driver = webdriver.Chrome(service=service, options=chrome_options)
     print("Browser process started.")
-    driver.get(START_URL)                # ← automatic navigation
+    driver.get(START_URL)                  # ← automatic navigation
     print(f"Navigated to START_URL: {START_URL}")
     time.sleep(1)
     try:
@@ -147,10 +147,10 @@ def get_profile(driver: webdriver.Chrome, term):
                 # Ensure it's a phone number, not 'Add phone number'
                 phone_text = aria_label.split(': ')[1] if ': ' in aria_label else aria_label
                 if any(char.isdigit() for char in phone_text): # Simple check for digits
-                     data["phone_number"] = phone_text
-                     print(f"  Phone: {data['phone_number']}")
+                        data["phone_number"] = phone_text
+                        print(f"  Phone: {data['phone_number']}")
                 else:
-                    print(f"  Skipping non-phone text for phone: {phone_text}")
+                        print(f"  Skipping non-phone text for phone: {phone_text}")
             except IndexError:
                 print(f"  Phone found but format unexpected: {aria_label}")
 
@@ -374,7 +374,7 @@ class ScraperGUI(tk.Tk):
 
         ttk.Label(scraper_tab, text="Saved searches:").grid(row=0, column=0, sticky="w", pady=(0,2))
         self.listbox = tk.Listbox(scraper_tab, listvariable=self.search_terms,
-                                  height=10, width=50, selectmode="single", exportselection=False)
+                                   height=10, width=50, selectmode="single", exportselection=False)
         self.listbox.grid(row=1, column=0, columnspan=3, pady=(0, 10), sticky="nsew")
         
         # Scrollbar for listbox
@@ -396,7 +396,36 @@ class ScraperGUI(tk.Tk):
         remove_button.grid(row=2, column=2, padx=5, pady=5, sticky="ew")
 
         ttk.Label(scraper_tab, text="CSV output file:").grid(row=3, column=0, sticky="w", pady=(12, 2))
-        self.file_var = tk.StringVar(value="results.csv")
+        
+        # --- MODIFICATION FOR DEFAULT CSV PATH ---
+        # Default to 'Maps_results.csv' in the user's Documents folder
+        default_csv_filename = "Maps_results.csv" # You can change the default filename here
+        try:
+            # os.path.expanduser("~") gets the user's home directory
+            # Works on both macOS (/Users/username) and Windows (C:\Users\username)
+            user_documents_path = os.path.join(os.path.expanduser("~"), "Documents")
+            
+            # Check if Documents folder exists, if not, try to create it or fallback
+            if not os.path.exists(user_documents_path):
+                try:
+                    print(f"User 'Documents' folder not found at {user_documents_path}, attempting to create it.")
+                    os.makedirs(user_documents_path, exist_ok=True)
+                    print(f"Successfully created 'Documents' folder.")
+                except Exception as e_mkdir:
+                    print(f"Could not create 'Documents' folder ({e_mkdir}). Falling back to user's home directory.", file=sys.stderr)
+                    user_documents_path = os.path.expanduser("~") # Save to home directory instead
+            
+            default_save_path = os.path.join(user_documents_path, default_csv_filename)
+            print(f"Default CSV save path set to: {default_save_path}")
+
+        except Exception as e_path:
+            # Absolute fallback if home directory somehow can't be determined or Documents path fails
+            print(f"Error determining default save path ({e_path}). Falling back to local filename.", file=sys.stderr)
+            default_save_path = default_csv_filename # Will save to current working dir (problematic for .app)
+        
+        self.file_var = tk.StringVar(value=default_save_path)
+        # --- END OF MODIFICATION ---
+        
         file_entry = ttk.Entry(scraper_tab, textvariable=self.file_var, width=45)
         file_entry.grid(row=4, column=0, sticky="ew", pady=(0,5))
         
@@ -469,10 +498,21 @@ class ScraperGUI(tk.Tk):
 
 
     def browse_file(self):
+        # Suggest initial directory based on current file_var or default if it's just a filename
+        initial_dir_candidate = os.path.dirname(self.file_var.get())
+        if not os.path.isdir(initial_dir_candidate) or initial_dir_candidate == "/": # Avoid root as initial dir
+            try:
+                initial_dir_candidate = os.path.join(os.path.expanduser("~"), "Documents")
+                if not os.path.isdir(initial_dir_candidate):
+                    initial_dir_candidate = os.path.expanduser("~")
+            except Exception:
+                initial_dir_candidate = os.getcwd() # Fallback to current working directory
+
         path = filedialog.asksaveasfilename(
             defaultextension=".csv",
             filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
-            initialfile=self.file_var.get(),
+            initialfile=os.path.basename(self.file_var.get()), # Use just the filename part
+            initialdir=initial_dir_candidate, # Suggest a writable directory
             title="Choose output CSV file",
         )
         if path:
@@ -501,7 +541,7 @@ class ScraperGUI(tk.Tk):
             if self.driver is None: # If launch failed
                 self.start_browser_button.config(state=tk.NORMAL) # Re-enable button
             else: # If successful
-                 self.start_browser_button.config(text="Browser Running", state=tk.DISABLED)
+                self.start_browser_button.config(text="Browser Running", state=tk.DISABLED)
 
 
     def start_scraping(self):
@@ -516,19 +556,25 @@ class ScraperGUI(tk.Tk):
             print("Start Scraping: No search terms provided.", file=sys.stderr)
             return
             
-        csv_file = self.file_var.get().strip()
-        if not csv_file:
+        csv_file_path_str = self.file_var.get().strip()
+        if not csv_file_path_str:
             messagebox.showwarning("No CSV File", "Please specify an output CSV file path.")
             print("Start Scraping: CSV file path is empty.", file=sys.stderr)
             return
 
         # Ensure the directory for the CSV file exists
-        csv_abs_path = os.path.abspath(csv_file)
+        csv_abs_path = os.path.abspath(csv_file_path_str)
         csv_dir = os.path.dirname(csv_abs_path)
         try:
-            if csv_dir: # Only create if dirname is not empty (i.e., not current dir)
+            if csv_dir and not os.path.exists(csv_dir): # Only create if dirname is not empty and doesn't exist
+                print(f"Output directory '{csv_dir}' does not exist. Attempting to create.")
                 os.makedirs(csv_dir, exist_ok=True)
-            print(f"Output directory ensured: {csv_dir if csv_dir else 'current directory'}")
+                print(f"Output directory '{csv_dir}' ensured.")
+            elif os.path.exists(csv_dir):
+                 print(f"Output directory '{csv_dir}' already exists.")
+            else: # csv_dir is empty, meaning current directory
+                 print(f"Output directory is current working directory.")
+
         except Exception as e:
             messagebox.showerror("File Path Error", f"Could not create directory for '{csv_abs_path}': {e}")
             print(f"Error creating directory for CSV '{csv_abs_path}': {e}", file=sys.stderr)
