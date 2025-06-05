@@ -169,18 +169,8 @@ def scrape(driver: webdriver.Chrome, searches: list[str], csv_path: str):
                 df = pd.concat([df, pd.DataFrame([data])])
                 df.to_csv(csv_path, index=False)
 
-
-        try:
-            driver.find_element(By.TAG_NAME, "g-right-button").click()
-            time.sleep(2)
-            page_source = driver.find_element(By.TAG_NAME, 'html').text.lower()
-            driver = captcha_check(driver, page_source)
-            # df.to_csv(csv_path, index=False)
-        except Exception:
-            break
-
     print(f"\n✅ Finished. Results stored in {csv_path}")
-
+    df.to_csv(csv_path, index=False)
 
 # ─────────────────────────────  Tkinter GUI  ───────────────────────────── #
 class ScraperGUI(tk.Tk):
@@ -274,7 +264,8 @@ class ScraperGUI(tk.Tk):
         if not searches:
             messagebox.showwarning("No searches", "Add at least one search term.")
             return
-        csv_file = self.file_var.get()
+        csv_file = os.path.abspath(self.file_var.get())
+        os.makedirs(os.path.dirname(csv_file), exist_ok=True)
         self.withdraw()           # hide GUI while running
         try:
             scrape(self.driver, searches, csv_file)
