@@ -193,7 +193,7 @@ def clear_search(driver: webdriver.Chrome):
 
 def scrape(driver: webdriver.Chrome, searches: list[str], csv_path: str):
     """Run claim-checking for each search term and append to CSV."""
-    df = pd.read_csv(csv_path) if os.path.exists(csv_path) else pd.DataFrame()
+    df = pd.read_csv(csv_path) if os.path.exists(csv_path) else pd.DataFrame(columns=['search_term', 'name', 'rating_score', 'rating_total', 'address', 'phone_number', 'website'])
     print(f"Initial CSV loaded. Rows: {len(df)}")
 
     for term in searches:
