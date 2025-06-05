@@ -144,7 +144,7 @@ def scrape(driver: webdriver.Chrome, searches: list[str], csv_path: str):
                 break
 
 
-        results = driver.find_elements(By.CLASS_NAME, "hfpxzc")
+        results = driver.find_elements(By.CLASS_NAME, "hfpxzc")[:20]
         # if not results:
         #     print("  No result cards found – did you switch to Maps view?")
         #     break
