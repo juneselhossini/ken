@@ -1,3 +1,5 @@
-selenium>=4.17   
+selenium>=4.17
 pandas
+openpyxl
+ttkbootstrap
 pyinstaller
