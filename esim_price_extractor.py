@@ -11,6 +11,7 @@ import threading
 import sys
 import os
 import io
+from selenium.webdriver.support.ui import Select
 
 # --- Helper Class to Redirect stdout to the GUI Log ---
 class TextRedirector(io.TextIOBase):
@@ -21,7 +22,7 @@ class TextRedirector(io.TextIOBase):
     def write(self, text):
         self.widget.configure(state='normal')
         self.widget.insert('end', text)
-        self.widget.see('end')  # Auto-scroll to the bottom
+        self.widget.see('end') # Auto-scroll to the bottom
         self.widget.configure(state='disabled')
         return len(text)
 
@@ -46,32 +47,11 @@ class ScraperApp(ttk.Window):
         self._create_sidebar()
         self._create_log_area()
 
-    # ---------- Cross-platform: default save location in Documents ----------
-    def _default_base_path(self, base_name: str) -> str:
-        """
-        Return a cross-platform default base path inside the user's Documents folder.
-        Falls back to the user's home directory if Documents can't be used/created.
-        """
-        try:
-            user_home = os.path.expanduser("~")
-            docs = os.path.join(user_home, "Documents")
-            if not os.path.exists(docs):
-                try:
-                    os.makedirs(docs, exist_ok=True)
-                    print("Created missing 'Documents' folder at:", docs)
-                except Exception as e:
-                    print(f"Could not create 'Documents' ({e}). Falling back to home directory.")
-                    docs = user_home
-            return os.path.join(docs, base_name)
-        except Exception as e:
-            print(f"Error determining default save path ({e}). Using current working directory.")
-            return os.path.join(os.getcwd(), base_name)
-
     def _create_sidebar(self):
         """Creates the left-hand sidebar with all the controls."""
         sidebar_frame = ttk.Frame(self, padding=(15, 15))
         sidebar_frame.grid(row=0, column=0, sticky="nsew")
-        sidebar_frame.grid_rowconfigure(3, weight=1)  # Pushes controls to the top
+        sidebar_frame.grid_rowconfigure(3, weight=1) # Pushes controls to the top
 
         # --- Controls ---
         # Start/Pause Button
@@ -86,14 +66,12 @@ class ScraperApp(ttk.Window):
         # --- File Output Group ---
         file_group = ttk.LabelFrame(sidebar_frame, text="Output File", padding=10)
         file_group.grid(row=1, column=0, sticky="ew", pady=(0, 20))
-        file_group.grid_columnconfigure(0, weight=1)  # Configure a single column to expand
-
+        file_group.grid_columnconfigure(0, weight=1) # Configure a single column to expand
         self.filetype_var = tk.StringVar(value="csv")
-        # Default base filename in Documents, no extension (e.g., /Users/you/Documents/esim_data)
-        default_base = self._default_base_path("esim_data")
-        self.filename_var = tk.StringVar(value=default_base)
+        self.filename_var = tk.StringVar(value="esim_data") 
 
         self.filename_entry = ttk.Entry(file_group, textvariable=self.filename_var)
+        # Place in row 0 and add some padding below it
         self.filename_entry.grid(row=0, column=0, sticky="ew", pady=(0, 5))
 
         self.filetype_combo = ttk.Combobox(
@@ -102,6 +80,7 @@ class ScraperApp(ttk.Window):
             values=["csv", "xlsx"],
             state="readonly"
         )
+        # Place in row 1, right below the entry field
         self.filetype_combo.grid(row=1, column=0, sticky="ew")
 
         # --- Providers Group ---
@@ -121,10 +100,10 @@ class ScraperApp(ttk.Window):
         # Disabled checkboxes with placeholder commands
         airalo_check = ttk.Checkbutton(providers_group, text="Airalo", variable=self.airalo_var, state="disabled", command=self._placeholder_airalo)
         airalo_check.pack(anchor="w", pady=2)
-
+        
         nomad_check = ttk.Checkbutton(providers_group, text="NomadSIM", variable=self.nomad_var, state="disabled", command=self._placeholder_nomad)
         nomad_check.pack(anchor="w", pady=2)
-
+        
         alo_check = ttk.Checkbutton(providers_group, text="AloSIM", variable=self.alo_var, state="disabled", command=self._placeholder_alo)
         alo_check.pack(anchor="w", pady=2)
 
@@ -141,13 +120,14 @@ class ScraperApp(ttk.Window):
         self.log_widget = tk.Text(log_frame, wrap="word", state="disabled", height=10, font=("Courier New", 10))
         scrollbar = ttk.Scrollbar(log_frame, orient="vertical", command=self.log_widget.yview)
         self.log_widget.config(yscrollcommand=scrollbar.set)
-
+        
         self.log_widget.grid(row=1, column=0, sticky="nsew")
         scrollbar.grid(row=1, column=1, sticky="ns")
-
+        
         # Redirect stdout to the log widget
         sys.stdout = TextRedirector(self.log_widget)
         print("Welcome to the eSIM Data Scraper! Configure settings and press Start.\n")
+
 
     # --- Control Logic ---
     def toggle_scraper(self):
@@ -155,12 +135,12 @@ class ScraperApp(ttk.Window):
         if not self.is_running:
             # --- VALIDATION ---
             if not self.filename_var.get().strip():
-                messagebox.showwarning("Validation Error", "Please enter a filename (or full path) before starting.")
+                messagebox.showwarning("Validation Error", "Please enter a filename before starting.")
                 return
-            if not self.saily_var.get():  # Check if at least one provider is selected
+            if not self.saily_var.get(): # Check if at least one provider is selected
                 messagebox.showwarning("Validation Error", "Please select at least one provider (Saily) to scrape.")
                 return
-
+            
             self._start_scraper()
         else:
             # --- PAUSE / RESUME ---
@@ -191,7 +171,7 @@ class ScraperApp(ttk.Window):
         self._toggle_controls_state("normal")
         # Ensure combo box remains readonly
         self.filetype_combo.config(state="readonly")
-
+        
     def _toggle_controls_state(self, state):
         """Disables or enables sidebar controls to prevent changes during scraping."""
         self.filename_entry.config(state=state)
@@ -199,7 +179,7 @@ class ScraperApp(ttk.Window):
         # Note: We don't re-enable the disabled checkboxes
         for widget in self.winfo_children()[0].winfo_children()[2].winfo_children():
             if isinstance(widget, ttk.Checkbutton) and widget.cget('text') == 'Saily':
-                widget.config(state=state)
+                 widget.config(state=state)
 
     # --- Placeholder Functions ---
     def _placeholder_airalo(self):
@@ -216,67 +196,39 @@ class ScraperApp(ttk.Window):
         """The main scraping logic, executed in a separate thread."""
         try:
             # --- 1. SETUP ---
-            base_filename = self.filename_var.get().strip()  # Can be a name or full path (no extension required)
-            file_extension = self.filetype_var.get().lower()
-
-            # If user already typed an extension, strip it so we don't double-append
-            root, ext = os.path.splitext(base_filename)
-            if ext.lower() in [".csv", ".xlsx"]:
-                base_filename = root
-
+            base_filename = self.filename_var.get().strip()
+            file_extension = self.filetype_var.get()
             full_filename = f"{base_filename}.{file_extension}"
-            full_filename = os.path.abspath(full_filename)
-
-            # Ensure the output directory exists (Documents or user-specified)
-            out_dir = os.path.dirname(full_filename)
-            try:
-                if out_dir and not os.path.exists(out_dir):
-                    print(f"Output directory '{out_dir}' does not exist. Creating it...")
-                    os.makedirs(out_dir, exist_ok=True)
-                    print(f"Output directory '{out_dir}' created.")
-                elif out_dir:
-                    print(f"Output directory '{out_dir}' already exists.")
-                else:
-                    print("Output directory is current working directory.")
-            except Exception as e:
-                messagebox.showerror("File Path Error", f"Could not create directory for '{full_filename}':\n{e}")
-                print(f"Error creating directory for '{full_filename}': {e}")
-                return
-
-            df_columns = [
-                'country', '1gb_price', '1gb_validity', '3gb_price', '3gb_validity',
-                '5gb_price', '5gb_validity', '10gb_price', '10gb_validity',
-                '20gb_price', '20gb_validity', 'unlimitedgb_price', 'unlimitedgb_validity'
-            ]
+            
+            df_columns = ['country', '1gb_price', '1gb_validity', '3gb_price', '3gb_validity', 
+                          '5gb_price', '5gb_validity', '10gb_price', '10gb_validity', 
+                          '20gb_price', '20gb_validity', 'unlimitedgb_price', 'unlimitedgb_validity']
+            
             df = pd.DataFrame(columns=df_columns)
 
             # --- File Handling: Append or Create ---
             if os.path.exists(full_filename):
                 print(f"File '{full_filename}' found. Reading existing data to append new rows.")
-                try:
-                    if file_extension == 'csv':
-                        existing_df = pd.read_csv(full_filename)
-                    else:  # xlsx
-                        existing_df = pd.read_excel(full_filename)
-                    df = pd.concat([existing_df, df], ignore_index=True)
-                    # Drop duplicates to avoid re-scraping countries already in the file
-                    if 'country' in df.columns:
-                        df.drop_duplicates(subset=['country'], keep='first', inplace=True)
-                except Exception as e:
-                    print(f"Warning: Could not read existing file ('{full_filename}'): {e}")
+                if file_extension == 'csv':
+                    existing_df = pd.read_csv(full_filename)
+                else: # xlsx
+                    existing_df = pd.read_excel(full_filename)
+                df = pd.concat([existing_df, df], ignore_index=True)
+                # Drop duplicates to avoid re-scraping countries already in the file
+                df.drop_duplicates(subset=['country'], keep='first', inplace=True)
             else:
-                print(f"File '{full_filename}' not found. A new file will be created in:\n{out_dir or os.getcwd()}")
+                print(f"File '{full_filename}' not found. A new file will be created.")
 
             # --- 2. BROWSER INITIALIZATION ---
             print("Starting browser...")
             options = webdriver.ChromeOptions()
             options.add_argument("--disable-search-engine-choice-screen")
-            options.add_experimental_option('excludeSwitches', ['enable-logging'])  # Suppress warnings
-            # options.add_argument("--headless")  # Uncomment for headless mode
-
+            options.add_experimental_option('excludeSwitches', ['enable-logging']) # Suppress warnings
+            # options.add_argument("--headless") # Uncomment for headless mode
+            
             # This suppresses the "DevTools listening on..." message
-            service = Service(log_output=os.devnull)
-
+            service = Service(log_output=os.devnull) 
+            
             driver = webdriver.Chrome(service=service, options=options)
             print("Browser started successfully.")
 
@@ -295,15 +247,15 @@ class ScraperApp(ttk.Window):
                     time.sleep(0.5)
 
                 country_name = country_url.split('/')[-2].replace('esim-', '').replace('-', ' ').capitalize()
-
+                
                 # Skip if country already in DataFrame
-                if not df.empty and 'country' in df.columns and country_name in df['country'].values:
+                if not df.empty and country_name in df['country'].values:
                     print(f"({i+1}/{len(all_countries_urls)}) Skipping '{country_name}' - already in file.")
                     continue
 
                 print(f"\n({i+1}/{len(all_countries_urls)}) Scraping data for: {country_name}")
                 driver.get(country_url)
-                time.sleep(2)  # Wait for page load
+                time.sleep(2) # Wait for page load
 
                 # Basic Cloudflare check (can be improved)
                 while True:
@@ -322,45 +274,50 @@ class ScraperApp(ttk.Window):
                 # --- 5. DATA EXTRACTION ---
                 data = {'country': country_name}
                 plan_cards = driver.find_elements(By.XPATH, "//li[contains(@data-testid, 'destination-hero-plan-card')]")
-
+                
                 for card in plan_cards:
                     try:
                         gb_str = card.find_element(By.XPATH, ".//p[contains(text(), 'GB')]").text
-                        val_str = card.find_element(By.XPATH, ".//p[contains(text(), 'days')]").text
-                        price_str = card.find_element(By.XPATH, ".//p[contains(text(), 'US$')]").text
+                        try:
+                            val_str = card.find_element(By.XPATH, ".//p[contains(text(), 'days')]").text
+                        except:
+                            val_str = Select(card.find_element(By.TAG_NAME, "select")).first_selected_option.text
+                        prices_str = card.find_elements(By.XPATH, ".//p[contains(text(), 'US$')]")
 
                         gb = 'unlimited' if 'Unlimited' in gb_str else gb_str.split(' ')[0]
                         val = val_str.split(' ')[0]
-                        price = price_str.split('US$')[1]
+                        if len(prices_str) > 1:
+                            discounted = prices_str[0].text.split('US$')[1]
+                            price = prices_str[1].text.split('US$')[1]
+                            data[f"{gb}gb_price_discounted"] = discounted
+                            data[f"{gb}gb_price"] = price
+                        else:
+                            price = prices_str[0].text.split('US$')[1]
+                            data[f"{gb}gb_price"] = price
 
-                        data[f"{gb}gb_price"] = price
                         data[f"{gb}gb_validity"] = val
-                    except Exception:
-                        # Silently ignore cards that don't match the format
+                    except Exception as ex:
+                        print(ex)
                         pass
-
+                
                 print(f"Data collected: {str(data)}")
                 new_row_df = pd.DataFrame([data])
                 df = pd.concat([df, new_row_df], ignore_index=True)
 
                 # --- 6. SAVE PROGRESS ---
-                try:
-                    if file_extension == 'csv':
-                        df.to_csv(full_filename, index=False)
-                    else:
-                        # requires 'openpyxl' in requirements
-                        df.to_excel(full_filename, index=False)
-                    print(f'Progress saved to {full_filename}')
-                except Exception as e:
-                    print(f"Error saving to '{full_filename}': {e}")
-                time.sleep(1)  # Small delay between countries
+                if file_extension == 'csv':
+                    df.to_csv(full_filename, index=False)
+                else:
+                    df.to_excel(full_filename, index=False)
+                print(f'Progress saved to {full_filename}')
+                time.sleep(1) # Small delay between countries
 
         except Exception as e:
             print(f"\n--- AN ERROR OCCURRED ---")
             print(f"Error Type: {type(e).__name__}")
             print(f"Error Details: {e}")
             messagebox.showerror("Scraper Error", f"An error occurred during scraping. Please check the log for details.\n\n{e}")
-
+        
         finally:
             print("\n--- Scraping process has finished or been stopped. ---")
             if 'driver' in locals() and driver:
